@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.stream.Collectors;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
@@ -26,23 +28,34 @@ public class MutualFriends {
     public static class Map
             extends Mapper<LongWritable, Text, Text, Text>{
     	
-        private Text word = new Text(); // type of output key
-        private Text friendList = new Text(); // type of output key
+        private Text word = new Text();
+        private Text friendList = new Text();
 
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String[] splitArr = value.toString().split("\t", -1);
+            if (splitArr.length < 2 || splitArr[0].trim().isEmpty() || splitArr[1].trim().isEmpty()) {
+            	return;
+            }
+            
             String currentUser = splitArr[0].trim();
             String[] friendListArr = splitArr[1].trim().split(",");
-            Arrays.parallelSort(friendListArr);
-            friendList.set(String.join(",", friendListArr));
+            int[] friendListArrInt = Arrays.stream(friendListArr).mapToInt(Integer::parseInt).toArray();
+            Arrays.sort(friendListArrInt);
+            String sortedFriendList = Arrays.stream(friendListArrInt).mapToObj(String::valueOf).collect(Collectors.joining(","));
+            friendList.set(sortedFriendList);
             String fkey = "";
             
             for (String friend : friendListArr) {
-            	if (currentUser.compareTo(friend) < 0) {
+            	if (currentUser.isEmpty() || friend.isEmpty()) {
+            		continue;
+            	}
+            	
+            	if (Integer.parseInt(currentUser) < Integer.parseInt(friend)) {
             		fkey = currentUser + "," + friend;
             	} else {
             		fkey = friend + "," + currentUser;
             	}
+            	word.clear();
                 word.set(fkey); // set word as each input keyword
                 context.write(word, friendList); // create a pair <keyword, 1>
             }
@@ -51,16 +64,12 @@ public class MutualFriends {
 
     public static class Reduce
             extends Reducer<Text,Text,Text,Text> {
-
-        //private IntWritable result = new IntWritable();
-    	Text result;
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
         	String[] groupedList = new String[2];
         	String[][] friendList = new String[2][];
         	ArrayList<String> resultList = new ArrayList<>();
         	
         	int index = 0, i = 0, j = 0;
-        	
         	for (Text val : values) {
         		groupedList[index] = val.toString();
         		friendList[index] = groupedList[index].split(",");
@@ -68,9 +77,11 @@ public class MutualFriends {
         	}
         	
         	while (index == 2 && i < friendList[0].length && j < friendList[1].length) {
-        		if (friendList[0][i] == friendList[1][j]) {
+        		if (friendList[0][i].equals(friendList[1][j])) {
         			resultList.add(friendList[0][i]);
-        		} else if (friendList[0][i].compareTo(friendList[1][j]) > 0) {
+        			i++;
+        			j++;
+        		} else if (Integer.parseInt(friendList[0][i]) > Integer.parseInt(friendList[1][j])) {
         			j++;
         		} else {
         			i++;
@@ -84,13 +95,7 @@ public class MutualFriends {
         		result = String.join(",", resultList);
         	}
         	
-        	context.write(key, new Text(key +"     "+result));
-        	/*int sum = 0; // initialize the sum for each keyword
-            for (Text val : values) {
-                //sum += val.get();
-            }
-            //result.set(sum);
-            context.write(key, result); // create a pair <keyword, number of occurences>*/
+        	context.write(key, new Text(result));
         }
     }
 
