@@ -110,12 +110,12 @@ public class MutualFriendsCount {
 		private IntWritable frequency = new IntWritable();
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			System.out.println("Task2 Mapping");
 			String[] splitArr = value.toString().split("\t", -1);
 		    String[] mutualFriendListArr = splitArr[1].split(",");
 		    int freq = mutualFriendListArr.length; 
+		    String result = splitArr[0] + "\t" + Integer.toString(freq) + "\t" + splitArr[1]; 
 		    frequency.set(freq); // set word as each input keyword
-	        context.write(frequency, new Text(splitArr[0]));
+	        context.write(frequency, new Text(result));
 		}
 	}
     
