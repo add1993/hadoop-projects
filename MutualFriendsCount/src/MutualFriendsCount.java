@@ -1,33 +1,26 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.*;
+import java.lang.*;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.*;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.Mapper.Context;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.jobcontrol.ControlledJob;
 import org.apache.hadoop.mapreduce.lib.jobcontrol.JobControl;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 
 public class MutualFriendsCount {
 
@@ -68,7 +61,7 @@ public class MutualFriendsCount {
     }
 
     public static class Reduce
-            extends Reducer<Text,Text,Text,IntWritable> {
+            extends Reducer<Text,Text,Text,Text> {
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
         	String[] groupedList = new String[2];
         	String[][] friendList = new String[2][];
@@ -102,37 +95,133 @@ public class MutualFriendsCount {
         		result = String.join(",", resultList);
         	}
         	
-        	context.write(key, new IntWritable(count));
+        	context.write(key, new Text(Integer.toString(count)));
         }
     }
 
     public static class Map2
     	extends Mapper<LongWritable, Text, IntWritable, Text>{
 
-		private IntWritable frequency = new IntWritable();
+		private IntWritable defaultKey = new IntWritable(1);
 		
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
-			String[] splitArr = value.toString().split("\t", -1);
-		    String[] mutualFriendListArr = splitArr[1].split(",");
+			//String[] splitArr = value.toString().split("\t", -1);
+		    /*String[] mutualFriendListArr = splitArr[1].split(",");
 		    int freq = mutualFriendListArr.length; 
 		    String result = splitArr[0] + "\t" + Integer.toString(freq) + "\t" + splitArr[1]; 
 		    frequency.set(freq); // set word as each input keyword
-	        context.write(frequency, new Text(result));
+	        context.write(frequency, new Text(result));*/
+			context.write(defaultKey, value);
 		}
 	}
     
     public static class Reduce2
-    	extends Reducer<IntWritable, Text, IntWritable, Text> {
+    	extends Reducer<IntWritable, Text, Text, IntWritable> {
     	private Text word = new Text();
 		public void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+			HashMap<String, Integer> map = new HashMap<String, Integer>();
+			int count = 0;
 			for (Text value : values) {
-		        word.set(value);
-		        context.write(key, word);
+				String[] splitArr = value.toString().split("\t", -1);
+				if (splitArr.length == 2) {
+					map.put(splitArr[0], Integer.parseInt(splitArr[1]));
+				}
+		        //context.write(key, word);
 		    }
+			//ValueComparator bvc = new ValueComparator(map);
+            //TreeMap<String, Integer> sorted_map = new TreeMap<String, Integer>(bvc);
+            //sorted_map.putAll(map);
+			HashMap<String, Integer> sorted_map = sortByComparator(map, false);
+            for (HashMap.Entry<String, Integer> entry : sorted_map.entrySet()) {
+                if (count < 10) {
+                    context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
+                } else
+                    break;
+                count++;
+            }
 		}
 	}
     
-    public static class IntComparator extends WritableComparator {
+    private static HashMap<String, Integer> sortByComparator(HashMap<String, Integer> unsortMap, final boolean order) {
+
+        List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
+
+        // Sorting the list based on values
+        Collections.sort(list, new Comparator<Entry<String, Integer>>()
+        {
+            public int compare(Entry<String, Integer> o1,
+                    Entry<String, Integer> o2)
+            {
+                if (order)
+                {
+                    return o1.getValue().compareTo(o2.getValue());
+                }
+                else
+                {
+                    return o2.getValue().compareTo(o1.getValue());
+
+                }
+            }
+        });
+
+        // Maintaining insertion order with the help of LinkedList
+        HashMap<String, Integer> sortedMap = new LinkedHashMap<String, Integer>();
+        for (Entry<String, Integer> entry : list)
+        {
+            sortedMap.put(entry.getKey(), entry.getValue());
+        }
+
+        return sortedMap;
+    }
+
+    
+    /*public LinkedHashMap<Integer, String> sortHashMapByValues(
+            HashMap<Integer, String> passedMap) {
+        List<Integer> mapKeys = new ArrayList<>(passedMap.keySet());
+        List<String> mapValues = new ArrayList<>(passedMap.values());
+        Collections.sort(mapValues);
+        Collections.sort(mapKeys);
+
+        LinkedHashMap<Integer, String> sortedMap =
+            new LinkedHashMap<>();
+
+        Iterator<String> valueIt = mapValues.iterator();
+        while (valueIt.hasNext()) {
+            String val = valueIt.next();
+            Iterator<Integer> keyIt = mapKeys.iterator();
+
+            while (keyIt.hasNext()) {
+                Integer key = keyIt.next();
+                String comp1 = passedMap.get(key);
+                String comp2 = val;
+
+                if (comp1.equals(comp2)) {
+                    keyIt.remove();
+                    sortedMap.put(key, val);
+                    break;
+                }
+            }
+        }
+        return sortedMap;
+    }
+    
+    public static class ValueComparator implements Comparator<String> {
+        HashMap<String, Integer> base;
+
+        public ValueComparator(HashMap<String, Integer> base) {
+            this.base = base;
+        }
+
+        public int compare(String a, String b) {
+            if (base.get(a) >= base.get(b)) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+    }*/
+    
+    /*public static class IntComparator extends WritableComparator {
 
     	  public IntComparator() {
     	    super(IntWritable.class);
@@ -145,7 +234,7 @@ public class MutualFriendsCount {
     	    Integer v2 = ByteBuffer.wrap(b2, s2, l2).getInt();
     	    return v1.compareTo(v2) * (-1);
     	  }
-    }
+    }*/
 
     public static void main(String[] args) throws Exception {
     	//int exitCode = ToolRunner.run(new WordCombined(), args);  
@@ -189,11 +278,15 @@ public class MutualFriendsCount {
 	        job2.setJarByClass(MutualFriendsCount.class);
 	        job2.setMapperClass(Map2.class);
 	        job2.setReducerClass(Reduce2.class);
-	        job2.setSortComparatorClass(IntComparator.class);
-	        job2.setOutputKeyClass(IntWritable.class);
-	        job2.setOutputValueClass(Text.class);
+	        //job2.setSortComparatorClass(IntComparator.class);
+	        //job2.setOutputKeyClass(Text.class);
+	        //job2.setOutputValueClass(IntWritable.class);
+	        job2.setInputFormatClass(TextInputFormat.class);
+	        job2.setMapOutputKeyClass(IntWritable.class);
+	        job2.setMapOutputValueClass(Text.class);
+	        
 	        FileInputFormat.setInputPaths(job2, new Path(otherArgs[2]));
-	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[2]+"/../mfcoutput"));
+	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[2]+"/../mfcount_output"));
 	        
 	        ControlledJob controlledJob2 = new ControlledJob(conf2);
 	        controlledJob2.setJob(job2);
