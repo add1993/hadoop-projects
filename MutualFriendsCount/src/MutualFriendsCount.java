@@ -68,7 +68,7 @@ public class MutualFriendsCount {
     }
 
     public static class Reduce
-            extends Reducer<Text,Text,Text,Text> {
+            extends Reducer<Text,Text,Text,IntWritable> {
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
         	String[] groupedList = new String[2];
         	String[][] friendList = new String[2][];
@@ -81,9 +81,11 @@ public class MutualFriendsCount {
         		index++;
         	}
         	
+        	int count = 0;
         	while (index == 2 && i < friendList[0].length && j < friendList[1].length) {
         		if (friendList[0][i].equals(friendList[1][j])) {
         			resultList.add(friendList[0][i]);
+        			count++;
         			i++;
         			j++;
         		} else if (Integer.parseInt(friendList[0][i]) > Integer.parseInt(friendList[1][j])) {
@@ -100,7 +102,7 @@ public class MutualFriendsCount {
         		result = String.join(",", resultList);
         	}
         	
-        	context.write(key, new Text(result));
+        	context.write(key, new IntWritable(count));
         }
     }
 
