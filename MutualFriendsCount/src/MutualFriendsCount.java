@@ -95,7 +95,7 @@ public class MutualFriendsCount {
         		result = String.join(",", resultList);
         	}
         	
-        	context.write(key, new Text(Integer.toString(count)));
+        	context.write(key, new Text(result));
         }
     }
 
@@ -116,15 +116,17 @@ public class MutualFriendsCount {
 	}
     
     public static class Reduce2
-    	extends Reducer<IntWritable, Text, Text, IntWritable> {
+    	extends Reducer<IntWritable, Text, Text, Text> {
     	private Text word = new Text();
 		public void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
 			HashMap<String, Integer> map = new HashMap<String, Integer>();
+			HashMap<String, String> map2 = new HashMap<String, String>();
 			int count = 0;
 			for (Text value : values) {
 				String[] splitArr = value.toString().split("\t", -1);
 				if (splitArr.length == 2) {
-					map.put(splitArr[0], Integer.parseInt(splitArr[1]));
+					map.put(splitArr[0], splitArr[1].split(",").length);
+					map2.put(splitArr[0], splitArr[1]);
 				}
 		        //context.write(key, word);
 		    }
@@ -134,7 +136,7 @@ public class MutualFriendsCount {
 			HashMap<String, Integer> sorted_map = sortByComparator(map, false);
             for (HashMap.Entry<String, Integer> entry : sorted_map.entrySet()) {
                 if (count < 10) {
-                    context.write(new Text(entry.getKey()), new IntWritable(entry.getValue()));
+                    context.write(new Text(entry.getKey()+"\t"+Integer.toString(entry.getValue())), new Text(map2.get(entry.getKey())));
                 } else
                     break;
                 count++;
@@ -147,11 +149,8 @@ public class MutualFriendsCount {
         List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>>(unsortMap.entrySet());
 
         // Sorting the list based on values
-        Collections.sort(list, new Comparator<Entry<String, Integer>>()
-        {
-            public int compare(Entry<String, Integer> o1,
-                    Entry<String, Integer> o2)
-            {
+        Collections.sort(list, new Comparator<Entry<String, Integer>>() {
+            public int compare(Entry<String, Integer> o1, Entry<String, Integer> o2) {
                 if (order)
                 {
                     return o1.getValue().compareTo(o2.getValue());
@@ -220,21 +219,6 @@ public class MutualFriendsCount {
             }
         }
     }*/
-    
-    /*public static class IntComparator extends WritableComparator {
-
-    	  public IntComparator() {
-    	    super(IntWritable.class);
-    	  }
-
-    	  @Override
-    	  public int compare(byte[] b1, int s1, int l1, byte[] b2,
-    	        int s2, int l2) {
-    	    Integer v1 = ByteBuffer.wrap(b1, s1, l1).getInt();
-    	    Integer v2 = ByteBuffer.wrap(b2, s2, l2).getInt();
-    	    return v1.compareTo(v2) * (-1);
-    	  }
-    }*/
 
     public static void main(String[] args) throws Exception {
     	//int exitCode = ToolRunner.run(new WordCombined(), args);  
@@ -242,10 +226,10 @@ public class MutualFriendsCount {
 		 Configuration conf = new Configuration();
 	        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 	        // get all args
-	        if (otherArgs.length != 3) {
+	        if (otherArgs.length != 4) {
 	            System.err.println(otherArgs[0]);
 	            System.err.println(otherArgs.length);
-	            System.err.println("Usage: MutualFriendsCount <in> <out>");
+	            System.err.println("Usage: MutualFriendsCount <in> <out> <out>");
 	            System.exit(2);
 	        }
 	        
@@ -286,7 +270,7 @@ public class MutualFriendsCount {
 	        job2.setMapOutputValueClass(Text.class);
 	        
 	        FileInputFormat.setInputPaths(job2, new Path(otherArgs[2]));
-	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[2]+"/../mfcount_output"));
+	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[3]));
 	        
 	        ControlledJob controlledJob2 = new ControlledJob(conf2);
 	        controlledJob2.setJob(job2);
