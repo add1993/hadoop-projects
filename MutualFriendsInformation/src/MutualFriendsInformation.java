@@ -36,19 +36,23 @@ public class MutualFriendsInformation {
         public void setup(Context context) throws IOException{
 			Configuration config = context.getConfiguration();
 			userDetails = new HashMap<String, String>();
-			//String userdataPath = config.get("userDataPath");
-			Path path = new Path("hdfs://localhost:9000" +"/user/ayush/input/userdata.txt");
+			String userDataPath = config.get("userDataPath");
+			String user1 = config.get("user1");
+			String user2 = config.get("user2");
+			Path path = new Path("hdfs://localhost:9000" + userDataPath);
 			FileSystem fileSystem = FileSystem.get(config);
 			BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(fileSystem.open(path)));
 			String userDataInput;
 			userDataInput = bufferedReader.readLine();
 			while (userDataInput != null) {
 				String[] tempArray = userDataInput.split(",");
-				if (tempArray.length == 10) {
-					String relevantData = tempArray[1] + ":" + tempArray[4];
-					userDetails.put(tempArray[0].trim(), relevantData);
+				if (tempArray[0].contentEquals(user1) || tempArray[0].contentEquals(user2)) {
+					if (tempArray.length == 10) {
+						String relevantData = tempArray[1] + ":" + tempArray[4];
+						userDetails.put(tempArray[0].trim(), relevantData);
+					}
+					userDataInput = bufferedReader.readLine();
 				}
-				userDataInput = bufferedReader.readLine();
 			}
         }
         
@@ -62,21 +66,25 @@ public class MutualFriendsInformation {
             int[] friendListArrInt = Arrays.stream(friendListArr).mapToInt(Integer::parseInt).toArray();
             Arrays.sort(friendListArrInt);
             //String sortedFriendList = Arrays.stream(friendListArrInt).mapToObj(String::valueOf).collect(Collectors.joining(","));
-            
+            Configuration config = context.getConfiguration();
+			String user1 = config.get("user1");
+			String user2 = config.get("user2");
             String fkey = "";
             String fList = "";
             for (int i = 0; i < friendListArrInt.length; i++) {
-            	int friend = friendListArrInt[i];
-            	fkey = Integer.toString(friend);
-            	fList +=  fkey+":"+userDetails.get(fkey);
-            	if (i != friendListArrInt.length-1) {
-            		fList += ",";
+            	if (friendListArr[i].contentEquals(user1) || friendListArr[i].contentEquals(user2)) {
+	            	int friend = friendListArrInt[i];
+	            	fkey = Integer.toString(friend);
+	            	fList +=  fkey+":"+userDetails.get(fkey);
+	            	if (i != friendListArrInt.length-1) {
+	            		fList += ",";
+	            	}
             	}
             }
             friendList.set(fList);
             
             for (String friend : friendListArr) {
-            	if (currentUser.isEmpty() || friend.isEmpty()) {
+            	if (currentUser.isEmpty() || friend.isEmpty() || !friend.contentEquals(user1) || !friend.contentEquals(user2)) {
             		continue;
             	}
             	
@@ -139,34 +147,22 @@ public class MutualFriendsInformation {
         }
     }
 
-    public static class IntComparator extends WritableComparator {
-
-    	  public IntComparator() {
-    	    super(IntWritable.class);
-    	  }
-
-    	  @Override
-    	  public int compare(byte[] b1, int s1, int l1, byte[] b2,
-    	        int s2, int l2) {
-    	    Integer v1 = ByteBuffer.wrap(b1, s1, l1).getInt();
-    	    Integer v2 = ByteBuffer.wrap(b2, s2, l2).getInt();
-    	    return v1.compareTo(v2) * (-1);
-    	  }
-    }
-
     public static void main(String[] args) throws Exception {
     	//int exitCode = ToolRunner.run(new WordCombined(), args);  
     	//System.exit(exitCode);
 		Configuration conf = new Configuration();
+		
 		String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 		// get all args
-		if (otherArgs.length != 3) {
+		if (otherArgs.length != 6) {
 		    System.err.println(otherArgs[0]);
 		    System.err.println(otherArgs.length);
-		    System.err.println("Usage: MutualFriendsCount <in> <out>");
+		    System.err.println("Usage: MutualFriendsInformation <in> <out> <userdetails file> <user1> <user2>");
 		    System.exit(2);
 		}
-		
+		conf.set("userDataPath", otherArgs[3]);
+		conf.set("user1", otherArgs[4]);
+		conf.set("user2", otherArgs[5]);
 		JobControl jobControl = new JobControl("jobChain");
 		// create a job with name "wordcount"
 		Job job1 = new Job(conf, "Mutual Friendlist");

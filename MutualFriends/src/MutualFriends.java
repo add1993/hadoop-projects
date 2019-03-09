@@ -44,6 +44,7 @@ public class MutualFriends {
             String sortedFriendList = Arrays.stream(friendListArrInt).mapToObj(String::valueOf).collect(Collectors.joining(","));
             friendList.set(sortedFriendList);
             String fkey = "";
+            String resultKeys[] = {"0,1", "20,28193", "1,29826", "6222,19272", "28041,28056"};
             
             for (String friend : friendListArr) {
             	if (currentUser.isEmpty() || friend.isEmpty()) {
@@ -55,9 +56,13 @@ public class MutualFriends {
             	} else {
             		fkey = friend + "," + currentUser;
             	}
-            	word.clear();
-                word.set(fkey); // set word as each input keyword
-                context.write(word, friendList); // create a pair <keyword, 1>
+            	for (int i = 0; i < resultKeys.length; i++) {
+            		if (fkey.contentEquals(resultKeys[i])) {
+		            	word.clear();
+		                word.set(fkey); // set word as each input keyword
+		                context.write(word, friendList); // create a pair <keyword, 1>
+            		}
+            	}
             }
         }
     }

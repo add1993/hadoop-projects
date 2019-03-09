@@ -205,7 +205,7 @@ public class MutualFriends {
 		 Configuration conf = new Configuration();
 	        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
 	        // get all args
-	        if (otherArgs.length != 4) {
+	        if (otherArgs.length != 5) {
 	            System.err.println(otherArgs[0]);
 	            System.err.println(otherArgs.length);
 	            System.err.println("Usage: MutualFriendsAverage <in> <out>");
@@ -247,7 +247,7 @@ public class MutualFriends {
 	        job2.setReducerClass(Reduce2.class);
 	        
 	        //FileInputFormat.setInputPaths(job2, new Path(otherArgs[2]));
-	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[2]+"/../mfaverage"));
+	        FileOutputFormat.setOutputPath(job2, new Path(otherArgs[4]));
 	        
 	        //ControlledJob controlledJob2 = new ControlledJob(conf2);
 	        //controlledJob2.setJob(job2);
