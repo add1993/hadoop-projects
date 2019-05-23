@@ -83,6 +83,12 @@ Code : [MutualFriends](https://github.com/add1993/hadoop-projects/tree/master/Mu
  
 #### Program 2: Find friend pairs whose number of common friends (number of mutual friends) is within the top-10 in all the pairs. Output the output in decreasing order.
 
+Used two pair of map reduce jobs. <br\>
+The first map reduce job will find the mutual friends and produce the output with the friends pair and their mutual friends.<br/>
+The second map reduce job will read the previous job output and then send the result to the same reducer by using the constant key. The value from mapper in this phase will have <friendPair><tab><mutualFriendList> format and we will directly send this complete line to the reducer and process it there. <br/>
+ In the second reducer, we will split the received value by first <tab> and we will get the first value as the friend pair and the second value as a comma separated mutual friend list.<br/>
+ We can then again split the mutual friends list and store the count in a java map and use custom comparator to sort the map. Once the map is sorted in descending order we can take the top 10 values. 
+
 ##### Output Format:
 <User_A>, <User_B><TAB><Number of Mutual Friends><TAB><Mutual/Common Friend Number><br/>
  
