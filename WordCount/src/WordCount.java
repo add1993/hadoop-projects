@@ -71,7 +71,8 @@ public class WordCount {
         job.setMapperClass(Map.class);
         job.setReducerClass(Reduce.class);
 
-        // uncomment the following line to add the Combiner job.setCombinerClass(Reduce.class);
+        // uncomment the following line to add the Combiner 
+        // job.setCombinerClass(Reduce.class);
 
         // set output key type
         job.setOutputKeyClass(Text.class);
